@@ -1,75 +1,37 @@
-﻿body {
+body {
   margin: 0;
   overflow: hidden;
   background: black;
-  font-family: 'Arial', sans-serif;
+  font-family: monospace;
   color: #0ff;
 }
 
-
-#gameUI {
+#ui {
   position: absolute;
-  top: 0; left: 0; right: 0;
-  pointer-events: none;
-}
-
-
-#scoreboard {
+  top: 10px;
+  left: 10px;
   display: flex;
-  justify-content: space-around;
-  padding: 8px;
-  font-weight: bold;
-}
-
-
-#messageBox {
-  position: absolute;
-  top: 50px; left: 50%;
-  transform: translateX(-50%);
-  padding: 6px 12px;
-  background: rgba(0,0,0,0.6);
-  border: 2px solid #0ff;
-  border-radius: 8px;
-  font-weight: bold;
-  display: none;
-}
-
-
-.overlay {
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.8);
-  color: #0ff;
-  font-size: 2em;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
+  gap: 10px;
   z-index: 10;
 }
 
-
-#controls {
-  position: absolute;
-  bottom: 10px; left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 8px;
-  pointer-events: auto;
-}
-
-
 button {
-  background: #000;
+  background: #111;
+  border: 1px solid #0ff;
   color: #0ff;
-  border: 2px solid #0ff;
-  padding: 6px 12px;
+  padding: 5px 10px;
   cursor: pointer;
-  font-weight: bold;
 }
 
-
-button:hover {
-  background: #0ff;
-  color: #000;
+#messageBox {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #0ff;
+  font-size: 24px;
+  text-align: center;
+  display: none;
+  z-index: 20;
+  text-shadow: 0 0 10px #0ff, 0 0 20px #0ff;
 }
