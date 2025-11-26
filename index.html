@@ -1,18 +1,24 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Neon Infinite Runner</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<title>Neon Infinite Runner</title>
+<style>
+  body { margin:0; overflow:hidden; background:black; font-family:sans-serif; }
+  #ui { position:absolute; top:10px; left:10px; color:white; z-index:10; }
+  #messageBox { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    padding:10px 20px; font-size:20px; background:rgba(0,0,0,0.6); border-radius:8px; display:none; }
+  button { font-size:16px; margin:4px; }
+</style>
 </head>
 <body>
-  <div id="gameUI">
-    <div id="scoreUI">Score: <span id="scoreEl">0</span></div>
-    <div id="tokensUI">Tokens: <span id="tokensEl">0</span></div>
-    <button id="btnStart">Start</button>
-  </div>
-  <div id="messageBox"></div>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.155.0/build/three.min.js"></script>
-  <script src="main.js"></script>
+<div id="ui">
+  <button onclick="startRun()">Start</button>
+  <span>Score: <span id="score">0</span></span>
+  <span>Tokens: <span id="tokens">0</span></span>
+</div>
+<div id="messageBox"></div>
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+<script src="main.js"></script>
 </body>
 </html>
