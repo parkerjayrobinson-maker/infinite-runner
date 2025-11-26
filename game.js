@@ -1,206 +1,152 @@
-﻿/* ------------------- Scene & Camera ------------------- */
-const canvas = document.getElementById('gameCanvas');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setClearColor(0x000000);
-
-
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-camera.position.set(0,2,5);
-
-
-/* ------------------- Lighting ------------------- */
-const ambient = new THREE.AmbientLight(0x0ff, 0.5);
-scene.add(ambient);
-const dirLight = new THREE.DirectionalLight(0x0ff, 1);
-dirLight.position.set(5,10,5);
-scene.add(dirLight);
-
-
-/* ------------------- Player ------------------- */
-const player = {
-  mesh: null, vy:0, onGround:true, shield:false, magnet:false, doubleTokens:false,
-  jumpSpeed:0.35
-};
-
-
-function makePlayerMesh(){
-  const geo = new THREE.SphereGeometry(0.3,16,16);
-  const mat = SKINS.find(s=>s.id===selectedSkin).mat.clone();
-  const mesh = new THREE.Mesh(geo, mat);
-  mesh.castShadow = true;
-  mesh.position.set(0,0,0);
-  return mesh;
-}
-
-
-player.mesh = makePlayerMesh();
-scene.add(player.mesh);
-
-
-/* ------------------- Path ------------------- */
-const track = new THREE.Group();
-scene.add(track);
-
-
-const trackWidth = 6;
-const trackLength = 200;
-const pathGeo = new THREE.PlaneGeometry(trackWidth, trackLength, trackLength/2, 1);
-const pathMat = new THREE.MeshStandardMaterial({ color: 0x1111ff, emissive: 0x0ff, side: THREE.DoubleSide });
-const pathMesh = new THREE.Mesh(pathGeo, pathMat);
-pathMesh.rotation.x = -Math.PI/2;
-pathMesh.position.z = -trackLength/2;
-track.add(pathMesh);
-
-
-/* ------------------- Game State ------------------- */
-let objects = [];
-let score = 0;
-let tokens = 0;
+let scene, camera, renderer;
+let player, forwardSpeed = 0.9, score = 0, tokens = 0, running = false, lastTime;
+let objects = [], particleGroup;
 let highs = [];
-let running = false;
-let forwardSpeed = 0.15;
 let slowModeActive = 1.0;
-let lastTime = null;
 
+const scoreEl = document.getElementById('scoreEl');
+const tokensEl = document.getElementById('tokensEl');
+const highEl = document.getElementById('highEl');
+const messageBox = document.getElementById('messageBox');
 
-/* ------------------- Spawn ------------------- */
-function makeCoinMesh(){ return new THREE.Mesh(new THREE.TorusGeometry(0.1,0.04,8,16), new THREE.MeshStandardMaterial({ color:0xffff00, emissive:0xffff00 })); }
-function makePowerMesh(type){ 
-  const color = type==='shield'?0x00ffff:type==='magnet'?0xff0000:type==='double'?0x00ff00:0xff00ff;
-  return new THREE.Mesh(new THREE.BoxGeometry(0.25,0.25,0.25), new THREE.MeshStandardMaterial({ color, emissive:color })); 
-}
-function makeObstacleMesh(){ 
-  return new THREE.Mesh(new THREE.BoxGeometry(0.6+Math.random()*0.5,0.6,0.6+Math.random()*0.5), new THREE.MeshStandardMaterial({ color:0xff00ff, emissive:0xff00ff }));
-}
+init();
 
+function init() {
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+  renderer = new THREE.WebGLRenderer({antialias:true});
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.body.appendChild(renderer.domElement);
 
-function spawnObjects(){
-  const z = player.mesh.position.z - 20 - Math.random()*20;
-  const x = (Math.random()-0.5)*trackWidth;
-  const typeRoll = Math.random();
-  let mesh, type;
-  if(typeRoll<0.5){ mesh = makeCoinMesh(); type='coin'; }
-  else if(typeRoll<0.7){ mesh = makePowerMesh(POWERUPS[Math.floor(Math.random()*POWERUPS.length)].id); type='power'; }
-  else{ mesh = makeObstacleMesh(); type='obs'; }
-  mesh.position.set(x,0,z);
+  // Neon path
+  const pathGeo = new THREE.PlaneGeometry(10, 1000, 50, 50);
+  const pathMat = new THREE.MeshBasicMaterial({color:0x0ff, wireframe:true});
+  const pathMesh = new THREE.Mesh(pathGeo, pathMat);
+  pathMesh.rotation.x = -Math.PI/2;
+  pathMesh.position.z = -500;
+  scene.add(pathMesh);
+
+  // Player
+  const geom = new THREE.SphereGeometry(0.5, 16,16);
+  const mat = new THREE.MeshBasicMaterial({color:0xff0, wireframe:true});
+  const mesh = new THREE.Mesh(geom, mat);
+  mesh.position.set(0,0.5,0);
   scene.add(mesh);
-  objects.push({ mesh, type });
+  player = {mesh, vy:0, onGround:true, x:0, z:0};
+
+  // Particles
+  particleGroup = new THREE.Group();
+  scene.add(particleGroup);
+
+  camera.position.set(0,5,10);
+  camera.lookAt(0,0,0);
+
+  window.addEventListener('resize', onResize);
+  document.getElementById('btnStart').addEventListener('click', startRun);
+  document.getElementById('btnPause').addEventListener('click', ()=>{ running=!running; });
+  window.addEventListener('keydown', e=>{ if(e.code==='Space') jump(); });
+  
+  animate();
 }
 
+function onResize(){
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+}
 
-/* ------------------- Collisions ------------------- */
-function checkCollisions(){
-  const px = player.mesh.position.x;
-  const pz = player.mesh.position.z;
+function jump(){
+  if(player.onGround){ player.vy = 0.3; player.onGround=false; }
+}
+
+function startRun(){
+  objects.forEach(o=>scene.remove(o.mesh));
+  objects = [];
+  score = 0; tokens = 0;
+  running = true; lastTime = performance.now();
+  player.mesh.position.set(0,0.5,0); player.vy=0; player.onGround=true;
+}
+
+function spawnObject(){
+  const type = Math.random()<0.7?'coin':'obs';
+  const mesh = type==='coin'?
+    new THREE.Mesh(new THREE.TetrahedronGeometry(0.3), new THREE.MeshBasicMaterial({color:0xff0, wireframe:true})) :
+    new THREE.Mesh(new THREE.BoxGeometry(1,1,1), new THREE.MeshBasicMaterial({color:0xff00ff, wireframe:true}));
+  mesh.position.set((Math.random()-0.5)*6,0.5, player.mesh.position.z - Math.random()*30 - 10);
+  scene.add(mesh);
+  objects.push({mesh,type});
+}
+
+function updateObjects(dt){
   for(let i=objects.length-1;i>=0;i--){
     const o = objects[i];
-    const dx = px - o.mesh.position.x;
-    const dz = pz - o.mesh.position.z;
-    const dist = Math.sqrt(dx*dx+dz*dz);
-    if(dist<0.35){
-      if(o.type==='coin'){ tokens++; objects[i].mesh.visible=false; objects.splice(i,1); }
-      if(o.type==='power'){ pickupPower(POWERUPS[Math.floor(Math.random()*POWERUPS.length)].id); objects[i].mesh.visible=false; objects.splice(i,1); }
-      if(o.type==='obs' && !player.shield){ failRun(); return; }
+    o.mesh.position.z += forwardSpeed * dt * 60 * slowModeActive;
+    if(o.mesh.position.z>5){ scene.remove(o.mesh); objects.splice(i,1); continue; }
+
+    // collision
+    const dist = o.mesh.position.clone().sub(player.mesh.position).length();
+    if(dist<0.7){
+      if(o.type==='coin'){ tokens++; scene.remove(o.mesh); objects.splice(i,1); showMsg('+1 Token'); }
+      else { failRun(); return; }
     }
   }
 }
 
+function updatePlayer(dt){
+  player.vy -= 0.02*dt*60;
+  player.mesh.position.y += player.vy*dt*60;
+  if(player.mesh.position.y<0.5){ player.mesh.position.y=0.5; player.vy=0; player.onGround=true; }
 
-/* ------------------- Pickup Powers ------------------- */
-function pickupPower(ptype){
-  if(ptype === 'shield'){ player.shield = true; setTimeout(()=>player.shield=false, 10000); }
-  if(ptype === 'slow'){ slowModeActive = 0.5; setTimeout(()=>{ slowModeActive=1.0; },8000); }
-  if(ptype === 'magnet'){ player.magnet = true; setTimeout(()=>{ player.magnet=false; },10000); }
-  if(ptype === 'double'){ player.doubleTokens = true; setTimeout(()=>{ player.doubleTokens=false; },10000); }
+  // sliding left-right
+  if(window.keyLeft) player.mesh.position.x -= dt*6;
+  if(window.keyRight) player.mesh.position.x += dt*6;
+
+  // fall off path
+  if(Math.abs(player.mesh.position.x)>5){ failRun(); }
 }
 
-
-/* ------------------- Fall check ------------------- */
-function checkFall(){
-  if(Math.abs(player.mesh.position.x)>trackWidth/2+1 || player.mesh.position.y<-1){
-    failRun();
-  }
-}
-
-
-/* ------------------- Fail Run ------------------- */
 function failRun(){
   running=false;
-  alert(`Run ended! Score: ${Math.floor(score)}, Tokens: ${tokens}`);
-  score=0;
-  tokens=0;
-  player.mesh.position.set(0,0,0);
+  showMsg('Run Ended!');
   objects.forEach(o=>scene.remove(o.mesh));
   objects=[];
 }
 
-
-/* ------------------- Player Control ------------------- */
-let inputX = 0;
-window.addEventListener('keydown',(e)=>{
-  if(e.code==='ArrowLeft') inputX=-0.02;
-  if(e.code==='ArrowRight') inputX=0.02;
-  if(e.code==='Space' && player.onGround){ player.vy=player.jumpSpeed; player.onGround=false; }
-});
-window.addEventListener('keyup',(e)=>{
-  if(e.code==='ArrowLeft' || e.code==='ArrowRight') inputX=0;
-});
-
-
-/* ------------------- Update ------------------- */
-function update(dt){
-  if(!running) return;
-  player.mesh.position.x += inputX * dt*60;
-  player.mesh.position.z -= forwardSpeed*dt*60;
-  player.vy -= 0.02*dt*60;
-  player.mesh.position.y += player.vy*dt*60;
-  if(player.mesh.position.y<0){ player.mesh.position.y=0; player.vy=0; player.onGround=true; }
-
-
-  // spawn coins/obstacles ahead
-  if(Math.random()<0.02) spawnObjects();
-
-
-  checkCollisions();
-  checkFall();
-
-
-  score += forwardSpeed*dt*60;
-  document.getElementById('scoreEl').textContent = Math.floor(score);
-  document.getElementById('tokensEl').textContent = tokens;
+function showMsg(txt){
+  messageBox.textContent=txt;
+  messageBox.style.display='block';
+  setTimeout(()=>{ messageBox.style.display='none'; }, 1500);
 }
 
-
-/* ------------------- Render Loop ------------------- */
-function renderLoop(ts){
+function animate(ts){
+  requestAnimationFrame(animate);
   if(!lastTime) lastTime=ts;
-  const delta = (ts-lastTime)/16.666;
-  lastTime=ts;
+  const dt = (ts-lastTime)/1000; lastTime=ts;
 
+  if(running){
+    // spawn objects periodically
+    if(Math.random()<0.03) spawnObject();
 
-  update(delta);
+    score += dt*10;
+    scoreEl.textContent = Math.floor(score);
+    tokensEl.textContent = tokens;
 
+    updateObjects(dt);
+    updatePlayer(dt);
 
-  // player spin
-  player.mesh.rotation.y += 0.2*delta;
+    // camera follows player
+    camera.position.z = player.mesh.position.z + 10;
+    camera.position.x += (player.mesh.position.x - camera.position.x)*0.1;
+  }
 
+  // rotate player
+  player.mesh.rotation.x += dt*5;
+  player.mesh.rotation.y += dt*5;
 
-  renderer.render(scene,camera);
-  requestAnimationFrame(renderLoop);
+  renderer.render(scene, camera);
 }
-requestAnimationFrame(renderLoop);
 
-
-/* ------------------- Controls ------------------- */
-document.getElementById('btnStart').addEventListener('click',()=>{ running=true; });
-document.getElementById('btnPause').addEventListener('click',()=>{ running=!running; });
-document.getElementById('btnShop').addEventListener('click',()=>{ document.getElementById('shopUI').style.display='flex'; });
-document.getElementById('btnScores').addEventListener('click',()=>{ document.getElementById('scoresUI').style.display='flex'; });
-function closeShop(){ document.getElementById('shopUI').style.display='none'; }
-function closeScores(){ document.getElementById('scoresUI').style.display='none'; }
-
-
-/* ------------------- Window Resize ------------------- */
-window.addEventListener('resize',()=>{ renderer.setSize(window.innerWidth,window.innerHeight); camera.aspect=window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); });
+// simple key tracking
+window.keyLeft=false; window.keyRight=false;
+window.addEventListener('keydown', e=>{ if(e.code==='ArrowLeft') window.keyLeft=true; if(e.code==='ArrowRight') window.keyRight=true; });
+window.addEventListener('keyup', e=>{ if(e.code==='ArrowLeft') window.keyLeft=false; if(e.code==='ArrowRight') window.keyRight=false; });
