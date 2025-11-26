@@ -1,0 +1,40 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Neon Runner</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="gameUI">
+    <div id="scoreboard">
+      <span>Score: <span id="scoreEl">0</span></span>
+      <span>Tokens: <span id="tokensEl">0</span></span>
+      <span>High: <span id="highEl">0</span></span>
+    </div>
+    <div id="messageBox"></div>
+    <div id="pauseUI" class="overlay">Paused</div>
+    <div id="shopUI" class="overlay">
+      <button onclick="closeShop()">Close Shop</button>
+      <div id="shopList"></div>
+    </div>
+    <div id="scoresUI" class="overlay">
+      <button onclick="closeScores()">Close Scores</button>
+      <div id="scoresList"></div>
+    </div>
+    <div id="controls">
+      <button id="btnStart">Start</button>
+      <button id="btnPause">Pause</button>
+      <button id="btnShop">Shop</button>
+      <button id="btnScores">Scores</button>
+    </div>
+  </div>
+  <canvas id="gameCanvas"></canvas>
+
+
+  <script src="https://cdn.jsdelivr.net/npm/three@0.153.0/build/three.min.js"></script>
+  <script src="assets.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
