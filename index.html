@@ -2,20 +2,17 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Infinite Runner Neon</title>
+  <title>Neon Infinite Runner</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="ui">
+  <div id="gameUI">
+    <div id="scoreUI">Score: <span id="scoreEl">0</span></div>
+    <div id="tokensUI">Tokens: <span id="tokensEl">0</span></div>
     <button id="btnStart">Start</button>
-    <button id="btnPause">Pause</button>
-    <span>Score: <span id="scoreEl">0</span></span>
-    <span>Tokens: <span id="tokensEl">0</span></span>
-    <span>High: <span id="highEl">0</span></span>
   </div>
   <div id="messageBox"></div>
-
-  <script src="https://cdn.jsdelivr.net/npm/three@0.154.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.155.0/build/three.min.js"></script>
   <script src="main.js"></script>
 </body>
 </html>
